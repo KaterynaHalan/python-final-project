@@ -55,7 +55,7 @@ class FileStorage:
         """
         file_path = base_dir / self.filepath
 
-        with file_path.open(newline="", encoding="utf-8") as csvfile:
+        with file_path.open("w", newline="", encoding="utf-8") as csvfile:
             fieldnames = fieldnames or data[0].keys()
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 
