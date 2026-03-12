@@ -49,12 +49,15 @@ class Validator:
 
         Returns:
             True якщо формат коректний, False — якщо ні.
-
-        TODO: Реалізувати цей метод!
-        Підказка: використай re.fullmatch() з відповідним патерном
         """
-        # --- ТВІЙ КОД ТУТ ---
-        raise NotImplementedError("Метод is_valid_phone() ще не реалізований!")
+        clean_phone = ''.join(char for char in phone if char.isdigit())
+        
+        if len(clean_phone) == 10 and clean_phone[0] == '0':
+            return True
+        elif len(clean_phone) == 12 and clean_phone.startswith("380"):
+            return True
+        else:
+            return False
 
     @staticmethod
     def is_valid_email(email: str) -> bool:
@@ -66,12 +69,10 @@ class Validator:
 
         Returns:
             True якщо формат коректний, False — якщо ні.
-
-        TODO: Реалізувати цей метод!
-        Підказка: використай re.fullmatch() або re.match()
         """
-        # --- ТВІЙ КОД ТУТ ---
-        raise NotImplementedError("Метод is_valid_email() ще не реалізований!")
+        pattern = r"[\w.+-]+@[\w-]+\.[\w.]+"
+        match = re.search(pattern, email)
+        return match is not None
 
 
 # ==================== МОДЕЛЬ ДАНИХ ====================
@@ -111,9 +112,20 @@ class Contact:
         """
         self.name = name
         self.address = address
-        self.phone = phone
+        self.phone = self._format_phone(phone) if phone else ""
         self.email = email
         self.birthday = birthday
+
+    def _format_phone(self, phone: str) -> str:
+        """Форматує телефон до міжнародного формату +380..."""
+        clean_phone = ''.join(char for char in phone if char.isdigit())
+        
+        if len(clean_phone) == 10 and clean_phone[0] == '0':
+            return "+38" + clean_phone
+        elif len(clean_phone) == 12 and clean_phone.startswith("380"):
+            return "+" + clean_phone
+        else:
+            return phone
 
     def days_to_birthday(self) -> int | None:
         """
@@ -122,12 +134,22 @@ class Contact:
         Returns:
             Ціле число днів (0 = сьогодні, 1 = завтра тощо).
             None — якщо birthday не заданий або має невірний формат.
-
-        TODO: Реалізувати цей метод!
-        Підказка: використай datetime.strptime, date.today()
         """
-        # --- ТВІЙ КОД ТУТ ---
-        raise NotImplementedError("Метод days_to_birthday() ще не реалізований!")
+        if not self.birthday:
+            return None
+        
+        try:
+            birthday_date = datetime.strptime(self.birthday, "%d.%m.%Y").date()
+            today = date.today()
+            birthday_this_year = birthday_date.replace(year=today.year)
+            
+            if birthday_this_year < today:
+                birthday_this_year = birthday_this_year.replace(year=today.year + 1)
+            
+            delta_days = (birthday_this_year - today).days
+            return delta_days
+        except ValueError:
+            return None
 
     def to_dict(self) -> dict:
         """
@@ -135,11 +157,14 @@ class Contact:
 
         Returns:
             {"name": ..., "address": ..., "phone": ..., "email": ..., "birthday": ...}
-
-        TODO: Реалізувати цей метод!
         """
-        # --- ТВІЙ КОД ТУТ ---
-        raise NotImplementedError("Метод to_dict() ще не реалізований!")
+        return {
+            "name": self.name,
+            "address": self.address,
+            "phone": self.phone,
+            "email": self.email,
+            "birthday": self.birthday
+        }
 
     @classmethod
     def from_dict(cls, data: dict) -> "Contact":
@@ -151,17 +176,29 @@ class Contact:
 
         Returns:
             Новий об'єкт Contact.
-
-        TODO: Реалізувати цей метод!
         """
-        # --- ТВІЙ КОД ТУТ ---
-        raise NotImplementedError("Метод from_dict() ще не реалізований!")
+        return cls(
+            name=data.get("name", ""),
+            address=data.get("address", ""),
+            phone=data.get("phone", ""),
+            email=data.get("email", ""),
+            birthday=data.get("birthday", "")
+        )
 
     def __str__(self) -> str:
         """Повертає зрозумілий рядок для виводу в консоль."""
-        # TODO: Реалізувати — включи всі поля, наприклад:
-        # "John Doe | вул. Хрещатик 1 | +380501234567 | john@ex.com | 01.01.1990"
-        raise NotImplementedError("Метод __str__() ще не реалізований!")
+        parts = [self.name]
+        
+        if self.address:
+            parts.append(self.address)
+        if self.phone:
+            parts.append(self.phone)
+        if self.email:
+            parts.append(self.email)
+        if self.birthday:
+            parts.append(self.birthday)
+        
+        return " | ".join(parts)
 
 
 # ==================== МЕНЕДЖЕР КОНТАКТІВ ====================
@@ -179,8 +216,7 @@ class ContactManager:
     def __init__(self, filepath: str = "data/contacts.csv"):
         self.storage = FileStorage(filepath)
         self.contacts: list[Contact] = []
-        # TODO: Завантажити контакти з файлу при ініціалізації
-        # self._load()
+        self._load()
 
     def add(self, contact: Contact) -> None:
         """
@@ -188,11 +224,9 @@ class ContactManager:
 
         Args:
             contact: Об'єкт Contact.
-
-        TODO: Реалізувати!
         """
-        # --- ТВІЙ КОД ТУТ ---
-        raise NotImplementedError("Метод add() ще не реалізований!")
+        self.contacts.append(contact)
+        self._save()
 
     def find(self, query: str) -> list[Contact]:
         """
@@ -203,11 +237,17 @@ class ContactManager:
 
         Returns:
             Список відповідних контактів.
-
-        TODO: Реалізувати!
         """
-        # --- ТВІЙ КОД ТУТ ---
-        raise NotImplementedError("Метод find() ще не реалізований!")
+        query_lower = query.lower()
+        results = []
+        
+        for contact in self.contacts:
+            if (query_lower in contact.name.lower() or
+                query_lower in contact.phone.lower() or
+                query_lower in contact.email.lower()):
+                results.append(contact)
+        
+        return results
 
     def edit(self, name: str, updated_contact: Contact) -> bool:
         """
@@ -219,11 +259,13 @@ class ContactManager:
 
         Returns:
             True якщо знайдено і оновлено, False якщо не знайдено.
-
-        TODO: Реалізувати!
         """
-        # --- ТВІЙ КОД ТУТ ---
-        raise NotImplementedError("Метод edit() ще не реалізований!")
+        for i, contact in enumerate(self.contacts):
+            if contact.name == name:
+                self.contacts[i] = updated_contact
+                self._save()
+                return True
+        return False
 
     def delete(self, name: str) -> bool:
         """
@@ -234,20 +276,19 @@ class ContactManager:
 
         Returns:
             True якщо видалено, False якщо не знайдено.
-
-        TODO: Реалізувати!
         """
-        # --- ТВІЙ КОД ТУТ ---
-        raise NotImplementedError("Метод delete() ще не реалізований!")
+        for i, contact in enumerate(self.contacts):
+            if contact.name == name:
+                del self.contacts[i]
+                self._save()
+                return True
+        return False
 
     def get_all(self) -> list[Contact]:
         """
         Повертає всі контакти.
-
-        TODO: Реалізувати!
         """
-        # --- ТВІЙ КОД ТУТ ---
-        raise NotImplementedError("Метод get_all() ще не реалізований!")
+        return self.contacts
 
     def birthdays_soon(self, days: int) -> list[Contact]:
         """
@@ -258,22 +299,24 @@ class ContactManager:
 
         Returns:
             Список контактів із найближчими днями народження.
-
-        TODO: Реалізувати!
-        Підказка: виклич contact.days_to_birthday() для кожного контакту
-        і відфільтруй ті, де значення <= days
         """
-        # --- ТВІЙ КОД ТУТ ---
-        raise NotImplementedError("Метод birthdays_soon() ще не реалізований!")
+        upcoming = []
+        
+        for contact in self.contacts:
+            days_to_bd = contact.days_to_birthday()
+            if days_to_bd is not None and days_to_bd <= days:
+                upcoming.append(contact)
+        
+        return upcoming
 
     # ---- Приватні допоміжні методи ----
 
     def _save(self) -> None:
         """Зберігає всі контакти у CSV через FileStorage."""
-        # TODO: self.storage.save([c.to_dict() for c in self.contacts], Contact.FIELDS)
-        raise NotImplementedError("Метод _save() ще не реалізований!")
+        data = [contact.to_dict() for contact in self.contacts]
+        self.storage.save(data, Contact.FIELDS)
 
     def _load(self) -> None:
         """Завантажує контакти з CSV через FileStorage."""
-        # TODO: data = self.storage.load(); self.contacts = [Contact.from_dict(d) for d in data]
-        raise NotImplementedError("Метод _load() ще не реалізований!")
+        data = self.storage.load()
+        self.contacts = [Contact.from_dict(d) for d in data]
