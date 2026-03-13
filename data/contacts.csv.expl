@@ -1,0 +1,16 @@
+name,address,phone,email,birthday
+Homer Simpson,вул. Вечнозелена 742,+380501234567,homer@springfield.com,12.05.1956
+Marge Simpson,вул. Вечнозелена 742,+380502345678,marge@springfield.com,19.03.1956
+Bart Simpson,вул. Вечнозелена 742,+380503456789,bart@springfield.com,01.04.1979
+Lisa Simpson,вул. Вечнозелена 742,+380504567890,lisa@springfield.com,14.03.1981
+Maggie Simpson,вул. Вечнозелена 742,+380505678901,maggie@springfield.com,04.01.1988
+Montgomery Burns,вул. Жовчна 1000,+380506789012,burns@springpowerplant.com,15.09.1886
+Ned Flanders,вул. Вечнозелена 744,+380507890123,ned@okily-dokily.com,16.03.1946
+Apu Nahasapeemapetilon,вул. Спрінгфілд 01,+380508901234,apu@kwikiemart.com,08.11.1960
+Chief Clancy Wiggum,вул. Поліційна 1,+380509012345,wiggum@spd.com,29.06.1960
+Krusty the Clown,вул. Телевізійна 5,+380501122334,krusty@krustytv.com,22.07.1948
+Sideshow Bob,вул. Театральна 13,+380502233445,bob@sideshow.com,03.10.1954
+Moe Szyslak,вул. Таверна 57,+380503344556,moe@moestav.com,16.11.1959
+Milhouse Van Houten,вул. Батіг 23,+380504455667,milhouse@springfield.com,16.03.1980
+Nelson Muntz,вул. Хуліганська 4,+380505566778,nelson@springfield.com,14.03.1979
+Ralph Wiggum,вул. Поліційна 2,+380506677889,ralph@springfield.com,22.08.1980

@@ -37,6 +37,10 @@ class Validator:
     """
 
     @staticmethod
+    def _extract_digits(phone: str) -> str:
+        return ''.join(char for char in phone if char.isdigit())
+
+    @staticmethod
     def is_valid_phone(phone: str) -> bool:
         """
         Перевіряє чи номер телефону має коректний формат.
@@ -50,13 +54,19 @@ class Validator:
         Returns:
             True якщо формат коректний, False — якщо ні.
         """
-        clean_phone = ''.join(char for char in phone if char.isdigit())
-        
-        if len(clean_phone) == 10 and clean_phone[0] == '0':
+        clean_phone = Validator._extract_digits(phone)
+        return (
+            (len(clean_phone) == 10 and clean_phone[0] == '0') or
+            (len(clean_phone) == 12 and clean_phone.startswith("380"))
+        )
+
+    @staticmethod
+    def is_valid_birthday(birthday: str) -> bool:
+        """Перевіряє чи дата народження має формат DD.MM.YYYY."""
+        try:
+            datetime.strptime(birthday, "%d.%m.%Y")
             return True
-        elif len(clean_phone) == 12 and clean_phone.startswith("380"):
-            return True
-        else:
+        except ValueError:
             return False
 
     @staticmethod
@@ -70,9 +80,7 @@ class Validator:
         Returns:
             True якщо формат коректний, False — якщо ні.
         """
-        pattern = r"[\w.+-]+@[\w-]+\.[\w.]+"
-        match = re.search(pattern, email)
-        return match is not None
+        return re.fullmatch(r"[\w.+-]+@[\w-]+\.[\w.]+", email) is not None
 
 
 # ==================== МОДЕЛЬ ДАНИХ ====================
@@ -118,14 +126,14 @@ class Contact:
 
     def _format_phone(self, phone: str) -> str:
         """Форматує телефон до міжнародного формату +380..."""
-        clean_phone = ''.join(char for char in phone if char.isdigit())
-        
+        if phone.startswith("+"):
+            return phone
+        clean_phone = Validator._extract_digits(phone)
         if len(clean_phone) == 10 and clean_phone[0] == '0':
             return "+38" + clean_phone
         elif len(clean_phone) == 12 and clean_phone.startswith("380"):
             return "+" + clean_phone
-        else:
-            return phone
+        return phone
 
     def days_to_birthday(self) -> int | None:
         """
@@ -283,6 +291,17 @@ class ContactManager:
                 self._save()
                 return True
         return False
+
+    def remove(self, contact: "Contact") -> None:
+        """Видаляє конкретний об'єкт контакту зі списку."""
+        self.contacts.remove(contact)
+        self._save()
+
+    def replace(self, old: "Contact", new: "Contact") -> None:
+        """Замінює конкретний об'єкт контакту на новий (зберігає позицію)."""
+        idx = self.contacts.index(old)
+        self.contacts[idx] = new
+        self._save()
 
     def get_all(self) -> list[Contact]:
         """
