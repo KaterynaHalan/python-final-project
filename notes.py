@@ -20,7 +20,6 @@ notes.py — Модуль для управління нотатками.
     - Метод find_by_tag() — пошук нотаток за тегом.
     - Метод get_all() може сортувати нотатки за тегом (опційно).
 """
-import os
 from storage import FileStorage
 
 
@@ -86,7 +85,7 @@ class Note:
         Returns:
             Новий об'єкт Note.
         """
-        return Note(data["title"], data["content"], data["tags"])
+        return Note(data.get("title", ""), data.get("content", ""), data.get("tags", ""))
 
     def has_query(self, query: str) -> bool:
         query_lower = query.lower()
@@ -102,7 +101,8 @@ class Note:
     def __str__(self) -> str:
         """Повертає зрозумілий рядок для виводу в консоль."""
         # "[робота, python] Заголовок: Перший рядок тексту..."
-        return f"[{self.tags}] {self.title}: {self.content}"
+        tags_part = f"[{self.tags}] " if self.tags else ""
+        return f"{tags_part}{self.title}: {self.content}"
 
 
 # ==================== МЕНЕДЖЕР НОТАТОК ====================
@@ -128,10 +128,6 @@ class NoteManager:
         self.notes.append(note)
         self._save()
 
-    def has_duplicates(self, title: str) -> bool:
-        note = next(n for n in self.notes if n.title == title) if len(self.notes) > 0 else None
-        return note is not None
-
     def find(self, query: str) -> list["Note"]:
         """
         Шукає нотатки за заголовком, текстом або тегами (часткове співпадіння).
@@ -156,37 +152,16 @@ class NoteManager:
         """
         return [n for n in self.notes if n.has_tag(tag)]
 
-    def edit(self, title: str, updated_note: "Note") -> bool:
-        """
-        Замінює нотатку з вказаним заголовком на новий об'єкт.
+    def delete(self, note: "Note") -> None:
+        """Видаляє конкретний об'єкт нотатки зі списку."""
+        self.notes.remove(note)
+        self._save()
 
-        Args:
-            title: Заголовок нотатки, яку треба оновити.
-            updated_note: Новий об'єкт Note з оновленими даними.
-
-        Returns:
-            True якщо знайдено і оновлено, False якщо не знайдено.
-        """
-        note = next(n for n in self.notes if n.title == title)
-        if note:
-            self.notes[self.notes.index(note)] = updated_note
-            self._save()
-            return True
-        return False
-
-    def delete(self, title: str) -> bool:
-        """
-        Видаляє нотатку за точним заголовком.
-
-        Returns:
-            True якщо видалено, False якщо не знайдено.
-        """
-        note = next(n for n in self.notes if n.title == title)
-        if note:
-            self.notes.remove(note)
-            self._save()
-            return True
-        return False
+    def edit(self, old: "Note", new: "Note") -> None:
+        """Замінює конкретний об'єкт нотатки на новий (зберігає позицію)."""
+        idx = self.notes.index(old)
+        self.notes[idx] = new
+        self._save()
 
     def get_all(self, sort_by_tag: bool = False) -> list["Note"]:
         """
