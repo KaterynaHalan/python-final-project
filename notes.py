@@ -129,7 +129,7 @@ class NoteManager:
         self._save()
 
     def has_duplicates(self, title: str) -> bool:
-        note = next(n for n in self.notes if n.title == title)
+        note = next(n for n in self.notes if n.title == title) if len(self.notes) > 0 else None
         return note is not None
 
     def find(self, query: str) -> list["Note"]:
