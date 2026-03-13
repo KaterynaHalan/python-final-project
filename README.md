@@ -17,8 +17,10 @@ personal_assistant/
 ├── requirements.txt  # Залежності
 ├── README.md         # Документація
 └── data/
-    ├── contacts.csv  # Зберігається автоматично
-    └── notes.csv     # Зберігається автоматично
+    ├── contacts.csv.example      # Зразок данних
+    ├── notes.csv.example         # Зразок данних
+    ├── contacts.csv              # Зберігається автоматично
+    └── notes.csv                 # Зберігається автоматично
 ```
 
 ---
