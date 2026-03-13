@@ -20,7 +20,6 @@ notes.py — Модуль для управління нотатками.
     - Метод find_by_tag() — пошук нотаток за тегом.
     - Метод get_all() може сортувати нотатки за тегом (опційно).
 """
-
 from storage import FileStorage
 
 
@@ -59,12 +58,8 @@ class Note:
 
         Returns:
             ["робота", "важливо"] або [] якщо тегів немає.
-
-        TODO (бонус): Реалізувати!
-        Підказка: self.tags.split(",") з очищенням пробілів
         """
-        # --- ТВІЙ КОД ТУТ (бонус) ---
-        raise NotImplementedError("Метод get_tags_list() ще не реалізований!")
+        return [] if not self.tags else [t.strip().lower() for t in self.tags.split(",")]
 
     def to_dict(self) -> dict:
         """
@@ -72,11 +67,12 @@ class Note:
 
         Returns:
             {"title": ..., "content": ..., "tags": ...}
-
-        TODO: Реалізувати!
         """
-        # --- ТВІЙ КОД ТУТ ---
-        raise NotImplementedError("Метод to_dict() ще не реалізований!")
+        return {
+            "title": self.title,
+            "content": self.content,
+            "tags": self.tags,
+        }
 
     @classmethod
     def from_dict(cls, data: dict) -> "Note":
@@ -88,21 +84,28 @@ class Note:
 
         Returns:
             Новий об'єкт Note.
-
-        TODO: Реалізувати!
         """
-        # --- ТВІЙ КОД ТУТ ---
-        raise NotImplementedError("Метод from_dict() ще не реалізований!")
+        return Note(data.get("title", ""), data.get("content", ""), data.get("tags", ""))
+
+    def has_query(self, query: str) -> bool:
+        query_lower = query.lower()
+        return (
+            query_lower in self.tags.lower() or
+            query_lower in self.content.lower() or
+            query_lower in self.title.lower()
+        )
+
+    def has_tag(self, tag: str) -> bool:
+        return tag.lower() in self.get_tags_list()
 
     def __str__(self) -> str:
         """Повертає зрозумілий рядок для виводу в консоль."""
-        # TODO: Реалізувати — наприклад:
         # "[робота, python] Заголовок: Перший рядок тексту..."
-        raise NotImplementedError("Метод __str__() ще не реалізований!")
+        tags_part = f"[{self.tags}] " if self.tags else ""
+        return f"{tags_part}{self.title}: {self.content}"
 
 
 # ==================== МЕНЕДЖЕР НОТАТОК ====================
-
 class NoteManager:
     """
     Управляє колекцією нотаток.
@@ -116,17 +119,14 @@ class NoteManager:
     def __init__(self, filepath: str = "data/notes.csv"):
         self.storage = FileStorage(filepath)
         self.notes: list[Note] = []
-        # TODO: Завантажити нотатки при ініціалізації
-        # self._load()
+        self._load()
 
     def add(self, note: Note) -> None:
         """
         Додає нотатку до списку та зберігає у файл.
-
-        TODO: Реалізувати!
         """
-        # --- ТВІЙ КОД ТУТ ---
-        raise NotImplementedError("Метод add() ще не реалізований!")
+        self.notes.append(note)
+        self._save()
 
     def find(self, query: str) -> list["Note"]:
         """
@@ -137,11 +137,8 @@ class NoteManager:
 
         Returns:
             Список нотаток, що відповідають запиту.
-
-        TODO: Реалізувати!
         """
-        # --- ТВІЙ КОД ТУТ ---
-        raise NotImplementedError("Метод find() ще не реалізований!")
+        return [n for n in self.notes if n.has_query(query)]
 
     def find_by_tag(self, tag: str) -> list["Note"]:
         """
@@ -152,40 +149,19 @@ class NoteManager:
 
         Returns:
             Список нотаток з цим тегом.
-
-        TODO (бонус): Реалізувати!
-        Підказка: виклич note.get_tags_list() для кожної нотатки
         """
-        # --- ТВІЙ КОД ТУТ (бонус) ---
-        raise NotImplementedError("Метод find_by_tag() ще не реалізований!")
+        return [n for n in self.notes if n.has_tag(tag)]
 
-    def edit(self, title: str, updated_note: "Note") -> bool:
-        """
-        Замінює нотатку з вказаним заголовком на новий об'єкт.
+    def delete(self, note: "Note") -> None:
+        """Видаляє конкретний об'єкт нотатки зі списку."""
+        self.notes.remove(note)
+        self._save()
 
-        Args:
-            title:        Заголовок нотатки, яку треба оновити.
-            updated_note: Новий об'єкт Note з оновленими даними.
-
-        Returns:
-            True якщо знайдено і оновлено, False якщо не знайдено.
-
-        TODO: Реалізувати!
-        """
-        # --- ТВІЙ КОД ТУТ ---
-        raise NotImplementedError("Метод edit() ще не реалізований!")
-
-    def delete(self, title: str) -> bool:
-        """
-        Видаляє нотатку за точним заголовком.
-
-        Returns:
-            True якщо видалено, False якщо не знайдено.
-
-        TODO: Реалізувати!
-        """
-        # --- ТВІЙ КОД ТУТ ---
-        raise NotImplementedError("Метод delete() ще не реалізований!")
+    def edit(self, old: "Note", new: "Note") -> None:
+        """Замінює конкретний об'єкт нотатки на новий (зберігає позицію)."""
+        idx = self.notes.index(old)
+        self.notes[idx] = new
+        self._save()
 
     def get_all(self, sort_by_tag: bool = False) -> list["Note"]:
         """
@@ -196,20 +172,16 @@ class NoteManager:
 
         Returns:
             Список нотаток.
-
-        TODO: Реалізувати!
         """
-        # --- ТВІЙ КОД ТУТ ---
-        raise NotImplementedError("Метод get_all() ще не реалізований!")
+        return sorted(self.notes, key=lambda n: n.get_tags_list()[0]) if sort_by_tag else self.notes
 
     # ---- Приватні допоміжні методи ----
 
     def _save(self) -> None:
         """Зберігає всі нотатки у CSV через FileStorage."""
-        # TODO: self.storage.save([n.to_dict() for n in self.notes], Note.FIELDS)
-        raise NotImplementedError("Метод _save() ще не реалізований!")
+        self.storage.save([n.to_dict() for n in self.notes], Note.FIELDS)
 
     def _load(self) -> None:
         """Завантажує нотатки з CSV через FileStorage."""
-        # TODO: data = self.storage.load(); self.notes = [Note.from_dict(d) for d in data]
-        raise NotImplementedError("Метод _load() ще не реалізований!")
+        data = self.storage.load()
+        self.notes = [Note.from_dict(d) for d in data]

@@ -53,10 +53,13 @@ class FileStorage:
             fieldnames: Список назв колонок. Якщо None — береться з першого елементу data.
         Підказка: використай csv.DictWriter
         """
+        if not data and not fieldnames:
+            return
+
         file_path = base_dir / self.filepath
 
         with file_path.open("w", newline="", encoding="utf-8") as csvfile:
-            fieldnames = fieldnames or data[0].keys()
+            fieldnames = fieldnames or list(data[0].keys())
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 
             writer.writeheader()
