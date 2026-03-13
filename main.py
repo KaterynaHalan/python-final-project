@@ -36,9 +36,14 @@ if isinstance(sys.stdout, io.TextIOWrapper):
 if isinstance(sys.stderr, io.TextIOWrapper):
     sys.stderr.reconfigure(encoding="utf-8")
 
+import questionary
 from typing import TypeVar
+from rich.console import Console
+from rich.table import Table
 from contacts import ContactManager, Contact, Validator
 from notes import NoteManager, Note
+
+console = Console()
 
 # Генеричний тип для select_from_results — дозволяє функції працювати
 # з будь-яким типом (Contact, Note тощо) і повертати правильний тип без дублювання коду.
@@ -52,34 +57,66 @@ def print_separator():
     print("-" * 45)
 
 
-def print_header(title: str):
-    """Виводить заголовок розділу."""
-    print_separator()
-    print(f"  {title}")
-    print_separator()
+def print_contacts_table(contacts: list[Contact]) -> None:
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("#", style="dim", width=3)
+    table.add_column("Ім'я")
+    table.add_column("Телефон")
+    table.add_column("Email")
+    table.add_column("День народження")
+    table.add_column("Адреса")
+    for i, c in enumerate(contacts, 1):
+        table.add_row(str(i), c.name, c.phone, c.email, c.birthday, c.address)
+    console.print(table)
 
 
-def select_from_results(results: list[T], label: str = "Оберіть номер") -> T | None:
+_TAG_PALETTE = [
+    "cyan", "magenta", "yellow", "green", "blue",
+    "red", "bright_cyan", "bright_magenta", "bright_yellow", "bright_green",
+]
+
+def _tag_colors(notes: list[Note]) -> dict[str, str]:
+    """Призначає кожному унікальному тегу колір зі палітри (стабільно для одного виклику)."""
+    all_tags = sorted({t for n in notes for t in n.get_tags_list()})
+    return {tag: _TAG_PALETTE[i % len(_TAG_PALETTE)] for i, tag in enumerate(all_tags)}
+
+def _format_tags(tags_str: str, colors: dict[str, str]) -> str:
+    if not tags_str:
+        return ""
+    parts = [t.strip() for t in tags_str.split(",")]
+    return ", ".join(f"[{colors.get(t.lower(), 'white')}]{t}[/]" for t in parts)
+
+
+def print_notes_table(notes: list[Note]) -> None:
+    colors = _tag_colors(notes)
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("#", style="dim", width=3)
+    table.add_column("Заголовок")
+    table.add_column("Текст")
+    table.add_column("Теги")
+    for i, n in enumerate(notes, 1):
+        table.add_row(str(i), n.title, n.content, _format_tags(n.tags, colors))
+    console.print(table)
+
+
+def select_from_results(results: list[T], label: str = "Оберіть") -> T | None:
     """
-    Якщо знайдено кілька результатів — показує список і просить вибрати за номером.
-    Якщо знайдено один — повертає одразу.
+    Якщо знайдено кілька результатів — показує список зі стрілковою навігацією.
+    Якщо знайдено один — повертає одразу без питань.
+    value=індекс щоб коректно розрізняти дублі (questionary повертає value, не об'єкт).
     """
     if not results:
         return None
     if len(results) == 1:
         return results[0]
-    for i, item in enumerate(results, 1):
-        print(f"  {i}. {item}")
-    while True:
-        try:
-            choice = int(input(f"{label} (1-{len(results)}, 0 — скасувати): "))
-            if choice == 0:
-                return None
-            if 1 <= choice <= len(results):
-                return results[choice - 1]
-        except ValueError:
-            pass
-        print(f"  Введіть число від 0 до {len(results)}")
+
+    choices = [questionary.Choice(title=str(r), value=i) for i, r in enumerate(results)]
+    choices.append(questionary.Choice(title="↩ Скасувати", value=-1))
+
+    idx = questionary.select(label, choices=choices).ask()
+    if idx is None or idx == -1:
+        return None
+    return results[idx]
 
 
 def input_contact_edit(existing: Contact) -> Contact:
@@ -88,7 +125,6 @@ def input_contact_edit(existing: Contact) -> Contact:
     Порожній ввід (Enter) залишає поточне значення.
     """
     name = input(f"Ім'я [{existing.name}]: ").strip() or existing.name
-
     address = input(f"Адреса [{existing.address}]: ").strip() or existing.address
 
     while True:
@@ -123,8 +159,8 @@ def input_contact_edit(existing: Contact) -> Contact:
 
 def input_contact() -> Contact | None:
     """
-    Запитує у користувача всі поля для нового/оновленого контакту.
-    Валідує телефон і email — показує помилку і просить ввести ще раз.
+    Запитує у користувача всі поля для нового контакту.
+    Валідує телефон, email і дату — показує помилку і просить ввести ще раз.
 
     Returns:
         Об'єкт Contact або None якщо ім'я не введено.
@@ -182,38 +218,41 @@ def input_note_edit(existing: Note) -> Note:
 def contacts_menu(manager: ContactManager):
     """Підменю для роботи з контактами."""
     while True:
-        print_header("КОНТАКТИ")
-        print("1. Додати контакт")
-        print("2. Знайти контакт")
-        print("3. Редагувати контакт")
-        print("4. Видалити контакт")
-        print("5. Показати всі контакти")
-        print("6. Іменинники (найближчі дні народження)")
-        print("0. Назад")
-        print_separator()
+        choice = questionary.select(
+            "КОНТАКТИ — оберіть дію:",
+            choices=[
+                "Додати контакт",
+                "Знайти контакт",
+                "Редагувати контакт",
+                "Видалити контакт",
+                "Показати всі контакти",
+                "Іменинники (найближчі дні народження)",
+                "↩ Назад",
+            ]
+        ).ask()
 
-        choice = input("Оберіть дію: ").strip()
+        if choice is None or choice == "↩ Назад":
+            break
 
-        if choice == "1":
+        elif choice == "Додати контакт":
             print("\n--- Додати контакт ---")
             contact = input_contact()
             if contact:
                 manager.add(contact)
                 print(f"✓ Контакт '{contact.name}' додано!")
 
-        elif choice == "2":
+        elif choice == "Знайти контакт":
             print("\n--- Пошук контакту ---")
             query = input("Введіть ім'я, телефон або email: ").strip()
             results = manager.find(query)
             if results:
-                for i, c in enumerate(results, 1):
-                    print(f"{i}. {c}")
+                print_contacts_table(results)
             else:
                 print("Контактів не знайдено.")
 
-        elif choice == "3":
+        elif choice == "Редагувати контакт":
             print("\n--- Редагувати контакт ---")
-            query = input("Пошук контакту (ім'я, телефон або email): ").strip()
+            query = input("Пошук контакту (ім'я, телефон або email; Enter — показати всі): ").strip()
             results = manager.find(query)
             if not results:
                 print("Контактів не знайдено.")
@@ -225,9 +264,9 @@ def contacts_menu(manager: ContactManager):
                     manager.replace(existing, updated)
                     print(f"✓ Контакт '{updated.name}' оновлено.")
 
-        elif choice == "4":
+        elif choice == "Видалити контакт":
             print("\n--- Видалити контакт ---")
-            query = input("Пошук контакту (ім'я, телефон або email): ").strip()
+            query = input("Пошук контакту (ім'я, телефон або email; Enter — показати всі): ").strip()
             results = manager.find(query)
             if not results:
                 print("Контактів не знайдено.")
@@ -237,17 +276,16 @@ def contacts_menu(manager: ContactManager):
                     manager.remove(contact)
                     print(f"✓ Контакт '{contact.name}' видалено.")
 
-        elif choice == "5":
+        elif choice == "Показати всі контакти":
             print("\n--- Всі контакти ---")
             contacts = manager.get_all()
             if contacts:
-                for i, c in enumerate(contacts, 1):
-                    print(f"{i}. {c}")
-                print(f"\nВсього: {len(contacts)} контактів.")
+                print_contacts_table(contacts)
+                print(f"Всього: {len(contacts)} контактів.")
             else:
                 print("Список контактів порожній.")
 
-        elif choice == "6":
+        elif choice == "Іменинники (найближчі дні народження)":
             print("\n--- Іменинники ---")
             try:
                 days = int(input("За скільки днів від сьогодні шукати? "))
@@ -258,16 +296,9 @@ def contacts_menu(manager: ContactManager):
             results = manager.birthdays_soon(days)
             if results:
                 print(f"Іменинники протягом {days} днів:")
-                for c in results:
-                    print(f"  {c}")
+                print_contacts_table(results)
             else:
                 print(f"Іменинників протягом {days} днів немає.")
-
-        elif choice == "0":
-            break
-
-        else:
-            print("Невірний вибір. Спробуйте ще раз.")
 
         input("\nНатисніть Enter для продовження...")
 
@@ -277,45 +308,47 @@ def contacts_menu(manager: ContactManager):
 def notes_menu(manager: NoteManager):
     """Підменю для роботи з нотатками."""
     while True:
-        print_header("НОТАТКИ")
-        print("1. Додати нотатку")
-        print("2. Знайти нотатку")
-        print("3. Редагувати нотатку")
-        print("4. Видалити нотатку")
-        print("5. Показати всі нотатки")
-        print("6. Знайти за тегом (бонус)")
-        print("0. Назад")
-        print_separator()
+        choice = questionary.select(
+            "НОТАТКИ — оберіть дію:",
+            choices=[
+                "Додати нотатку",
+                "Знайти нотатку",
+                "Редагувати нотатку",
+                "Видалити нотатку",
+                "Показати всі нотатки",
+                "Знайти за тегом",
+                "↩ Назад",
+            ]
+        ).ask()
 
-        choice = input("Оберіть дію: ").strip()
+        if choice is None or choice == "↩ Назад":
+            break
 
-        if choice == "1":
+        elif choice == "Додати нотатку":
             print("\n--- Додати нотатку ---")
             title = input("Заголовок: ").strip()
             if not title:
                 print("Заголовок не може бути порожнім!")
                 input("\nНатисніть Enter для продовження...")
                 continue
-
             content = input("Текст нотатки: ").strip()
             tags = input("Теги через кому (або Enter щоб пропустити): ").strip()
             note = Note(title=title, content=content, tags=tags)
             manager.add(note)
             print(f"✓ Нотатку '{title}' додано!")
 
-        elif choice == "2":
+        elif choice == "Знайти нотатку":
             print("\n--- Пошук нотатки ---")
             query = input("Введіть заголовок, текст або тег: ").strip()
             results = manager.find(query)
             if results:
-                for i, n in enumerate(results, 1):
-                    print(f"{i}. {n}")
+                print_notes_table(results)
             else:
                 print("Нотаток не знайдено.")
 
-        elif choice == "3":
+        elif choice == "Редагувати нотатку":
             print("\n--- Редагувати нотатку ---")
-            query = input("Пошук нотатки (заголовок, текст або тег): ").strip()
+            query = input("Пошук нотатки (заголовок, текст або тег; Enter — показати всі): ").strip()
             results = manager.find(query)
             if not results:
                 print("Нотаток не знайдено.")
@@ -327,9 +360,9 @@ def notes_menu(manager: NoteManager):
                     manager.edit(existing, updated)
                     print(f"✓ Нотатку '{existing.title}' оновлено.")
 
-        elif choice == "4":
+        elif choice == "Видалити нотатку":
             print("\n--- Видалити нотатку ---")
-            query = input("Пошук нотатки (заголовок, текст або тег): ").strip()
+            query = input("Пошук нотатки (заголовок, текст або тег; Enter — показати всі): ").strip()
             results = manager.find(query)
             if not results:
                 print("Нотаток не знайдено.")
@@ -339,31 +372,23 @@ def notes_menu(manager: NoteManager):
                     manager.delete(note)
                     print(f"✓ Нотатку '{note.title}' видалено.")
 
-        elif choice == "5":
+        elif choice == "Показати всі нотатки":
             print("\n--- Всі нотатки ---")
             notes = manager.get_all()
             if notes:
-                for i, n in enumerate(notes, 1):
-                    print(f"{i}. {n}")
-                print(f"\nВсього: {len(notes)} нотаток.")
+                print_notes_table(notes)
+                print(f"Всього: {len(notes)} нотаток.")
             else:
                 print("Список нотаток порожній.")
 
-        elif choice == "6":
-            print("\n--- Пошук за тегом (бонус) ---")
+        elif choice == "Знайти за тегом":
+            print("\n--- Пошук за тегом ---")
             tag = input("Введіть тег: ").strip()
             results = manager.find_by_tag(tag)
             if results:
-                for i, n in enumerate(results, 1):
-                    print(f"{i}. {n}")
+                print_notes_table(results)
             else:
                 print(f"Нотаток з тегом '{tag}' не знайдено.")
-
-        elif choice == "0":
-            break
-
-        else:
-            print("Невірний вибір. Спробуйте ще раз.")
 
         input("\nНатисніть Enter для продовження...")
 
@@ -381,23 +406,18 @@ def main():
     note_manager = NoteManager()
 
     while True:
-        print_header("ГОЛОВНЕ МЕНЮ")
-        print("1. Контакти")
-        print("2. Нотатки")
-        print("0. Вийти")
-        print_separator()
+        choice = questionary.select(
+            "ГОЛОВНЕ МЕНЮ — оберіть розділ:",
+            choices=["Контакти", "Нотатки", "Вийти"]
+        ).ask()
 
-        choice = input("Оберіть розділ: ").strip()
-
-        if choice == "1":
-            contacts_menu(contact_manager)
-        elif choice == "2":
-            notes_menu(note_manager)
-        elif choice == "0":
+        if choice is None or choice == "Вийти":
             print("\nДо побачення!")
             break
-        else:
-            print("Невірний вибір. Спробуйте ще раз.")
+        elif choice == "Контакти":
+            contacts_menu(contact_manager)
+        elif choice == "Нотатки":
+            notes_menu(note_manager)
 
 
 if __name__ == "__main__":
