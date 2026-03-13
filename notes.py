@@ -128,6 +128,10 @@ class NoteManager:
         self.notes.append(note)
         self._save()
 
+    def has_duplicates(self, title: str) -> bool:
+        note = next(n for n in self.notes if n.title == title)
+        return note is not None
+
     def find(self, query: str) -> list["Note"]:
         """
         Шукає нотатки за заголовком, текстом або тегами (часткове співпадіння).
@@ -157,7 +161,7 @@ class NoteManager:
         Замінює нотатку з вказаним заголовком на новий об'єкт.
 
         Args:
-            title:        Заголовок нотатки, яку треба оновити.
+            title: Заголовок нотатки, яку треба оновити.
             updated_note: Новий об'єкт Note з оновленими даними.
 
         Returns:

@@ -192,6 +192,11 @@ def notes_menu(manager: NoteManager):
                 print("Заголовок не може бути порожнім!")
                 input("\nНатисніть Enter для продовження...")
                 continue
+            elif manager.has_duplicates(title):
+                print("Нотатка з таким заголовком вже присутня!!")
+                input("\nНатисніть Enter для продовження...")
+                continue
+
             content = input("Текст нотатки: ").strip()
             tags = input("Теги через кому (або Enter щоб пропустити): ").strip()
             note = Note(title=title, content=content, tags=tags)
