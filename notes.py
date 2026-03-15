@@ -173,7 +173,9 @@ class NoteManager:
         Returns:
             Список нотаток.
         """
-        return sorted(self.notes, key=lambda n: n.get_tags_list()[0]) if sort_by_tag else self.notes
+        if sort_by_tag:
+            return sorted(self.notes, key=lambda n: (n.get_tags_list() or [""])[0])
+        return self.notes
 
     # ---- Приватні допоміжні методи ----
 

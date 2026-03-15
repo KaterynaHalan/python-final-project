@@ -12,7 +12,7 @@ contacts.py — Модуль для управління контактами.
     Клас ContactManager:
       - Керує списком контактів.
       - Зберігає/завантажує через FileStorage.
-      - Методи: add, find, edit, delete, get_all, birthdays_soon
+      - Методи: add, find, edit(old, new), delete(contact), get_all, birthdays_soon
 
     Валідація (дивись клас Validator нижче):
       - Перевірка формату телефону при додаванні/редагуванні.
@@ -257,47 +257,12 @@ class ContactManager:
         
         return results
 
-    def edit(self, name: str, updated_contact: Contact) -> bool:
-        """
-        Замінює контакт з вказаним ім'ям на новий об'єкт.
-
-        Args:
-            name:            Ім'я контакту, який треба замінити.
-            updated_contact: Новий об'єкт Contact з оновленими даними.
-
-        Returns:
-            True якщо знайдено і оновлено, False якщо не знайдено.
-        """
-        for i, contact in enumerate(self.contacts):
-            if contact.name == name:
-                self.contacts[i] = updated_contact
-                self._save()
-                return True
-        return False
-
-    def delete(self, name: str) -> bool:
-        """
-        Видаляє контакт за точним ім'ям.
-
-        Args:
-            name: Ім'я контакту.
-
-        Returns:
-            True якщо видалено, False якщо не знайдено.
-        """
-        for i, contact in enumerate(self.contacts):
-            if contact.name == name:
-                del self.contacts[i]
-                self._save()
-                return True
-        return False
-
-    def remove(self, contact: "Contact") -> None:
+    def delete(self, contact: "Contact") -> None:
         """Видаляє конкретний об'єкт контакту зі списку."""
         self.contacts.remove(contact)
         self._save()
 
-    def replace(self, old: "Contact", new: "Contact") -> None:
+    def edit(self, old: "Contact", new: "Contact") -> None:
         """Замінює конкретний об'єкт контакту на новий (зберігає позицію)."""
         idx = self.contacts.index(old)
         self.contacts[idx] = new

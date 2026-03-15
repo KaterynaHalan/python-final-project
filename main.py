@@ -36,6 +36,7 @@ if isinstance(sys.stdout, io.TextIOWrapper):
 if isinstance(sys.stderr, io.TextIOWrapper):
     sys.stderr.reconfigure(encoding="utf-8")
 
+import difflib
 import questionary
 from typing import TypeVar
 from rich.console import Console
@@ -97,6 +98,24 @@ def print_notes_table(notes: list[Note]) -> None:
     for i, n in enumerate(notes, 1):
         table.add_row(str(i), n.title, n.content, _format_tags(n.tags, colors))
     console.print(table)
+
+
+def suggest_similar(query: str, candidates: list[str]) -> None:
+    """Виводить схожі варіанти через difflib якщо пошук нічого не знайшов.
+    Порівнює по першому слові в lowercase — 'homre' → 'homer' → 'Homer Simpson'.
+    """
+    q = query.lower()
+    # Беремо перше слово кожного кандидата (ім'я), зберігаємо mapping → повна назва
+    first_word_map: dict[str, str] = {}
+    for c in candidates:
+        words = c.split()
+        if words:
+            first_word_map[words[0].lower()] = c
+
+    matched = difflib.get_close_matches(q, first_word_map.keys(), n=3, cutoff=0.5)
+    matches = [first_word_map[w] for w in matched]
+    if matches:
+        print(f"  Можливо, ви мали на увазі: {', '.join(matches)}?")
 
 
 def select_from_results(results: list[T], label: str = "Оберіть") -> T | None:
@@ -249,6 +268,7 @@ def contacts_menu(manager: ContactManager):
                 print_contacts_table(results)
             else:
                 print("Контактів не знайдено.")
+                suggest_similar(query, [c.name for c in manager.get_all()])
 
         elif choice == "Редагувати контакт":
             print("\n--- Редагувати контакт ---")
@@ -261,7 +281,7 @@ def contacts_menu(manager: ContactManager):
                 if existing:
                     print("Введіть нові дані (Enter — залишити поточне значення):")
                     updated = input_contact_edit(existing)
-                    manager.replace(existing, updated)
+                    manager.edit(existing, updated)
                     print(f"✓ Контакт '{updated.name}' оновлено.")
 
         elif choice == "Видалити контакт":
@@ -273,7 +293,7 @@ def contacts_menu(manager: ContactManager):
             else:
                 contact = select_from_results(results, "Оберіть контакт для видалення")
                 if contact:
-                    manager.remove(contact)
+                    manager.delete(contact)
                     print(f"✓ Контакт '{contact.name}' видалено.")
 
         elif choice == "Показати всі контакти":
@@ -345,6 +365,7 @@ def notes_menu(manager: NoteManager):
                 print_notes_table(results)
             else:
                 print("Нотаток не знайдено.")
+                suggest_similar(query, [n.title for n in manager.get_all()])
 
         elif choice == "Редагувати нотатку":
             print("\n--- Редагувати нотатку ---")
@@ -374,7 +395,8 @@ def notes_menu(manager: NoteManager):
 
         elif choice == "Показати всі нотатки":
             print("\n--- Всі нотатки ---")
-            notes = manager.get_all()
+            sort = questionary.confirm("Сортувати за тегами?", default=False).ask()
+            notes = manager.get_all(sort_by_tag=bool(sort))
             if notes:
                 print_notes_table(notes)
                 print(f"Всього: {len(notes)} нотаток.")
